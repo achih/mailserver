@@ -19,6 +19,8 @@ export KEYFILE
 export FULLCHAIN
 export DISABLE_CLAMAV
 export DISABLE_DNS_RESOLVER
+export DISABLE_MARIADB_HOSTNAME
+export DISABLE_REDISDB_HOSTNAME
 export RECIPIENT_DELIMITER
 export FETCHMAIL_INTERVAL
 export RELAY_NETWORKS
@@ -46,6 +48,8 @@ DISABLE_SIGNING=${DISABLE_SIGNING:-false}
 DISABLE_GREYLISTING=${DISABLE_GREYLISTING:-false}
 DISABLE_RATELIMITING=${DISABLE_RATELIMITING:-false}
 DISABLE_DNS_RESOLVER=${DISABLE_DNS_RESOLVER:-false}
+DISABLE_MARIADB_HOSTNAME=${DISABLE_MARIADB_HOSTNAME:-false}
+DISABLE_REDISDB_HOSTNAME=${DISABLE_REDISDB_HOSTNAME:-false}
 ENABLE_POP3=${ENABLE_POP3:-false}
 ENABLE_FETCHMAIL=${ENABLE_FETCHMAIL:-false}
 ENABLE_ENCRYPTION=${ENABLE_ENCRYPTION:-false}
@@ -231,37 +235,41 @@ fi
 # ---------------------------------------------------------------------------------------------
 
 # Check mariadb hostname
-grep -q "${DBHOST}" /etc/hosts
+if [ "$DISABLE_MARIADB_HOSTNAME" = false ]; then
+  grep -q "${DBHOST}" /etc/hosts
 
-if [ $? -ne 0 ]; then
-  echo "[INFO] MariaDB hostname not found in /etc/hosts"
-  IP=$(dig A ${DBHOST} +short)
-  if [ -n "$IP" ]; then
-    echo "[INFO] Container IP found, adding a new record in /etc/hosts"
-    echo "${IP} ${DBHOST}" >> /etc/hosts
+  if [ $? -ne 0 ]; then
+    echo "[INFO] MariaDB hostname not found in /etc/hosts"
+    IP=$(dig A ${DBHOST} +short)
+    if [ -n "$IP" ]; then
+      echo "[INFO] Container IP found, adding a new record in /etc/hosts"
+      echo "${IP} ${DBHOST}" >> /etc/hosts
+    else
+      echo "[ERROR] Container IP not found with embedded DNS server... Abort !"
+      exit 1
+    fi
   else
-    echo "[ERROR] Container IP not found with embedded DNS server... Abort !"
-    exit 1
+    echo "[INFO] MariaDB hostname found in /etc/hosts"
   fi
-else
-  echo "[INFO] MariaDB hostname found in /etc/hosts"
 fi
 
 # Check redis hostname
-grep -q "${REDIS_HOST}" /etc/hosts
+if [ "$DISABLE_REDISDB_HOSTNAME" = false ]; then
+  grep -q "${REDIS_HOST}" /etc/hosts
 
-if [ $? -ne 0 ]; then
-  echo "[INFO] Redis hostname not found in /etc/hosts"
-  IP=$(dig A ${REDIS_HOST} +short)
-  if [ -n "$IP" ]; then
-    echo "[INFO] Container IP found, adding a new record in /etc/hosts"
-    echo "${IP} ${REDIS_HOST}" >> /etc/hosts
+  if [ $? -ne 0 ]; then
+    echo "[INFO] Redis hostname not found in /etc/hosts"
+    IP=$(dig A ${REDIS_HOST} +short)
+    if [ -n "$IP" ]; then
+      echo "[INFO] Container IP found, adding a new record in /etc/hosts"
+      echo "${IP} ${REDIS_HOST}" >> /etc/hosts
+    else
+      echo "[ERROR] Container IP not found with embedded DNS server... Abort !"
+      exit 1
+    fi
   else
-    echo "[ERROR] Container IP not found with embedded DNS server... Abort !"
-    exit 1
+    echo "[INFO] Redis hostname found in /etc/hosts"
   fi
-else
-  echo "[INFO] Redis hostname found in /etc/hosts"
 fi
 
 # DOVECOT TUNING
