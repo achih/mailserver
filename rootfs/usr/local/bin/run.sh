@@ -520,7 +520,7 @@ rm -f /var/mail/dovecot/instances
 # ---------------------------------------------------------------------------------------------
 if [ "$ALLOW_PLAINTEXT_AUTH" = true ]; then
   echo "[INFO] Allow plaintext auth."
-  sed -i 's|\(smtpd_tls_auth_only.*=\).*|\1 no;|' /etc/postfix/main.cf
+  sed -i 's|\(smtpd_tls_auth_only.*=\).*|\1 no|' /etc/postfix/main.cf
   sed -i 's|\(ssl.*=\).*|\1 yes|' /etc/dovecot/conf.d/10-ssl.conf
   echo "disable_plaintext_auth=no" >> /etc/dovecot/conf.d/10-ssl.conf
 fi
