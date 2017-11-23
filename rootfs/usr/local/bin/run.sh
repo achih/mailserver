@@ -514,6 +514,27 @@ if [[ $(stat -c %U /var/mail/vhosts) != "vmail" ]] ; then chown -R vmail:vmail /
 # Avoid file_dotlock_open function exception
 rm -f /var/mail/dovecot/instances
 
+# DOVECOT Multiple Domain Certs setting
+# ---------------------------------------------------------------------------------------------
+
+# Add domains from ENV DOMAIN and ADD_DOMAINS
+domains=(${DOMAIN})
+domains+=(${ADD_DOMAINS//,/ })
+
+for domain in "${domains[@]}"; do
+
+  mkdir -p /var/mail/certs/"$domain"
+
+  echo "\n" > /etc/dovecot/conf.d/10-ssl.conf
+  echo "local_name $domain {\n" > /etc/dovecot/conf.d/10-ssl.conf
+  echo "ssl_cert = </var/mail/ssl/certs/$domain/cert.crt\n" > /etc/dovecot/conf.d/10-ssl.conf
+  echo "ssl_key = </var/mail/ssl/certs/$domain/private.key\n" > /etc/dovecot/conf.d/10-ssl.conf
+  echo "}" > /etc/dovecot/conf.d/10-ssl.conf
+
+  echo "[INFO] Add TLS SNI domain certification path into dovecot config: $domain "
+
+done
+
 # UNBOUND
 # ---------------------------------------------------------------------------------------------
 
