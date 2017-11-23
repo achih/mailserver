@@ -550,7 +550,7 @@ done
 
 # BCC Mail Address
 # ---------------------------------------------------------------------------------------------
-if [ ! -e "$ALWAYS_BCC" ]; then
+if [ ! -n "$ALWAYS_BCC" ]; then
   echo "[INFO] Set always bcc email: $ALWAYS_BCC"
   echo "always_bcc = $ALWAYS_BCC" >> /etc/postfix/main.cf
 fi
