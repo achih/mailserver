@@ -26,7 +26,7 @@ export RECIPIENT_DELIMITER
 export FETCHMAIL_INTERVAL
 export RELAY_NETWORKS
 export PASSWORD_SCHEME
-export ALWAYES_BCC
+export ALWAYS_BCC
 
 FQDN=${FQDN:-$(hostname --fqdn)}
 DOMAIN=${DOMAIN:-$(hostname --domain)}
@@ -63,7 +63,7 @@ RECIPIENT_DELIMITER=${RECIPIENT_DELIMITER:-"+"}
 FETCHMAIL_INTERVAL=${FETCHMAIL_INTERVAL:-10}
 RELAY_NETWORKS=${RELAY_NETWORKS:-}
 PASSWORD_SCHEME=${PASSWORD_SCHEME:-"SHA512-CRYPT"}
-ALWAYES_BCC=${ALWAYES_BCC:-}
+ALWAYS_BCC=$([ -f "${ALWAYS_BCC:-}" ] && cat "${ALWAYS_BCC:-}" || echo "${ALWAYS_BCC:-}")
 
 if [ -z "$DBPASS" ]; then
   echo "[ERROR] Mariadb database password must be set !"
@@ -550,9 +550,9 @@ done
 
 # BCC Mail Address
 # ---------------------------------------------------------------------------------------------
-if [ !-z "$ALWAYES_BCC" ]; then
-  echo "[INFO] Set always bcc email: $ALWAYES_BCC"
-  echo "always_bcc = $ALWAYES_BCC" >> /etc/postfix/main.cf
+if [ !-z "$ALWAYS_BCC" ]; then
+  echo "[INFO] Set always bcc email: $ALWAYS_BCC"
+  echo "always_bcc = $ALWAYS_BCC" >> /etc/postfix/main.cf
 fi
 
 # UNBOUND
