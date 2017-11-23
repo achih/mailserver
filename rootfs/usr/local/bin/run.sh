@@ -518,7 +518,7 @@ rm -f /var/mail/dovecot/instances
 # ---------------------------------------------------------------------------------------------
 
 # Add domains from ENV DOMAIN and ADD_DOMAINS
-domains=(${DOMAIN})
+domains=(${FQDN:-$(hostname --fqdn)})
 domains+=(${ADD_DOMAINS//,/ })
 
 for domain in "${domains[@]}"; do
