@@ -523,7 +523,7 @@ domains+=(${ADD_DOMAINS//,/ })
 
 for domain in "${domains[@]}"; do
 
-  mkdir -p /var/mail/certs/"$domain"
+  mkdir -p /var/mail/ssl/certs/"$domain"
 
   echo "" >> /etc/dovecot/conf.d/10-ssl.conf
   echo "local_name $domain {" >> /etc/dovecot/conf.d/10-ssl.conf
