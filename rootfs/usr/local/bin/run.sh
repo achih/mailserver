@@ -21,6 +21,7 @@ export DISABLE_CLAMAV
 export DISABLE_DNS_RESOLVER
 export DISABLE_MARIADB_HOSTNAME
 export DISABLE_REDISDB_HOSTNAME
+export ALLOW_PLAINTEXT_AUTH
 export RECIPIENT_DELIMITER
 export FETCHMAIL_INTERVAL
 export RELAY_NETWORKS
@@ -50,6 +51,7 @@ DISABLE_RATELIMITING=${DISABLE_RATELIMITING:-false}
 DISABLE_DNS_RESOLVER=${DISABLE_DNS_RESOLVER:-false}
 DISABLE_MARIADB_HOSTNAME=${DISABLE_MARIADB_HOSTNAME:-false}
 DISABLE_REDISDB_HOSTNAME=${DISABLE_REDISDB_HOSTNAME:-false}
+ALLOW_PLAINTEXT_AUTH=${ALLOW_PLAINTEXT_AUTH:-false}
 ENABLE_POP3=${ENABLE_POP3:-false}
 ENABLE_FETCHMAIL=${ENABLE_FETCHMAIL:-false}
 ENABLE_ENCRYPTION=${ENABLE_ENCRYPTION:-false}
@@ -513,6 +515,15 @@ if [[ $(stat -c %U /var/mail/vhosts) != "vmail" ]] ; then chown -R vmail:vmail /
 
 # Avoid file_dotlock_open function exception
 rm -f /var/mail/dovecot/instances
+
+# Allow plaintext auth
+# ---------------------------------------------------------------------------------------------
+if [ "$ALLOW_PLAINTEXT_AUTH" = true ]; then
+  echo "[INFO] Allow plaintext auth."
+  sed -i 's|\(smtpd_tls_auth_only.*=\).*|\1 false;|' /etc/postfix/main.cf
+  sed -i 's|\(ssl.*=\).*|\1 yes|' /etc/dovecot/conf.d/10-ssl.conf
+  echo "disable_plaintext_auth=no" >> /etc/dovecot/conf.d/10-ssl.conf
+fi
 
 # DOVECOT Multiple Domain Certs setting
 # ---------------------------------------------------------------------------------------------
