@@ -525,11 +525,11 @@ for domain in "${domains[@]}"; do
 
   mkdir -p /var/mail/certs/"$domain"
 
-  echo "\n" > /etc/dovecot/conf.d/10-ssl.conf
-  echo "local_name $domain {\n" > /etc/dovecot/conf.d/10-ssl.conf
-  echo "ssl_cert = </var/mail/ssl/certs/$domain/cert.crt\n" > /etc/dovecot/conf.d/10-ssl.conf
-  echo "ssl_key = </var/mail/ssl/certs/$domain/private.key\n" > /etc/dovecot/conf.d/10-ssl.conf
-  echo "}" > /etc/dovecot/conf.d/10-ssl.conf
+  echo "\n" >> /etc/dovecot/conf.d/10-ssl.conf
+  echo "local_name $domain {\n" >> /etc/dovecot/conf.d/10-ssl.conf
+  echo "ssl_cert = </var/mail/ssl/certs/$domain/cert.crt\n" >> /etc/dovecot/conf.d/10-ssl.conf
+  echo "ssl_key = </var/mail/ssl/certs/$domain/private.key\n" >> /etc/dovecot/conf.d/10-ssl.conf
+  echo "}" >> /etc/dovecot/conf.d/10-ssl.conf
 
   echo "[INFO] Add TLS SNI domain certification path into dovecot config: $domain "
 
