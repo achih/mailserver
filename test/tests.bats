@@ -864,6 +864,30 @@ load 'test_helper/bats-assert/load'
   assert_output 4
 }
 
+@test "checking dovecot: login_greeting value (default configuration)" {
+  run docker exec mailserver_default /bin/sh -c "doveconf -h login_greeting 2>/dev/null"
+  assert_success
+  assert_output "Do. Or do not. There is no try."
+}
+
+@test "checking dovecot: login_greeting value (reverse configuration)" {
+  run docker exec mailserver_reverse /bin/sh -c "doveconf -h login_greeting 2>/dev/null"
+  assert_success
+  assert_output "Dovecot ready."
+}
+
+@test "checking dovecot: mail_max_userip_connections imap value" {
+  run docker exec mailserver_default /bin/sh -c "doveconf -h -f protocol=imap mail_max_userip_connections 2>/dev/null"
+  assert_success
+  assert_output "100"
+}
+
+@test "checking dovecot: mail_max_userip_connections pop3 value" {
+  run docker exec mailserver_default /bin/sh -c "doveconf -h -f protocol=pop3 mail_max_userip_connections 2>/dev/null"
+  assert_success
+  assert_output "50"
+}
+
 #
 # clamav
 #
@@ -899,10 +923,10 @@ load 'test_helper/bats-assert/load'
   assert_success
 }
 
-@test "checking clamav: 4 database mirrors" {
+@test "checking clamav: 6 database mirrors" {
   run docker exec mailserver_default /bin/sh -c "grep 'DatabaseMirror' /etc/clamav/freshclam.conf | wc -l"
   assert_success
-  assert_output 4
+  assert_output 6
 }
 
 #
@@ -1106,6 +1130,11 @@ load 'test_helper/bats-assert/load'
   assert_success
 }
 
+@test "checking ssl: traefik cert works correctly" {
+  run docker exec mailserver_traefik_acme /bin/sh -c "timeout 1 openssl s_client -ign_eof -connect 0.0.0.0:587 -starttls smtp | grep 'Verify return code: 21 (unable to verify the first certificate)'"
+  assert_success
+}
+
 @test "checking ssl: default configuration is correct" {
   run docker exec mailserver_default /bin/sh -c "grep '/var/mail/ssl/selfsigned' /etc/postfix/main.cf | wc -l"
   assert_success
@@ -1122,6 +1151,43 @@ load 'test_helper/bats-assert/load'
   run docker exec mailserver_reverse /bin/sh -c "grep '/etc/letsencrypt/live/mail.domain.tld' /etc/dovecot/conf.d/10-ssl.conf | wc -l"
   assert_success
   assert_output 2
+}
+
+#
+# traefik acme
+#
+
+@test "checking traefik acme: acme.json exist" {
+  run docker exec mailserver_traefik_acme [ -f /etc/letsencrypt/acme/acme.json ]
+  assert_success
+}
+
+@test "checking traefik acme: dump.log doesn't exist" {
+  run docker exec mailserver_traefik_acme [ -f /etc/letsencrypt/acme/dump.log ]
+  assert_failure
+}
+
+@test "checking traefik acme: all certificates were generated" {
+  run docker exec mailserver_traefik_acme [ -f /etc/letsencrypt/live/mail.domain.tld/cert.pem ]
+  assert_success
+  run docker exec mailserver_traefik_acme [ -f /etc/letsencrypt/live/mail.domain.tld/chain.pem ]
+  assert_success
+  run docker exec mailserver_traefik_acme [ -f /etc/letsencrypt/live/mail.domain.tld/fullchain.pem ]
+  assert_success
+  run docker exec mailserver_traefik_acme [ -f /etc/letsencrypt/live/mail.domain.tld/privkey.pem ]
+  assert_success
+}
+
+@test "checking traefik acme: check private key" {
+  run docker exec mailserver_traefik_acme /bin/sh -c "openssl rsa -in /etc/letsencrypt/live/mail.domain.tld/privkey.pem -check 2>/dev/null | head -n 1"
+  assert_success
+  assert_output "RSA key ok"
+}
+
+@test "checking traefik acme: private key matches the certificate" {
+  run docker exec mailserver_traefik_acme /bin/sh -c "(openssl x509 -noout -modulus -in /etc/letsencrypt/live/mail.domain.tld/cert.pem | openssl md5 ; openssl rsa -noout -modulus -in /etc/letsencrypt/live/mail.domain.tld/privkey.pem | openssl md5) | uniq | wc -l"
+  assert_success
+  assert_output 1
 }
 
 #
