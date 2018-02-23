@@ -13,7 +13,7 @@ Simple and full-featured mail server as a set of multiple docker images includes
 - **Postfix** : a full set smtp email server
 - **Dovecot** : secure imap and pop3 email server
 - **Rspamd** : anti-spam filter with SPF, DKIM, DMARC, ARC, ratelimit and greylisting capabilities
-- **Clamav** : antivirus with automatic updates
+- **Clamav** : antivirus with automatic updates and third-party signature databases
 - **Zeyple** : automatic GPG encryption of all your e-mails
 - **Sieve** : email filtering (vacation auto-responder, auto-forward...etc)
 - **Fetchmail** : fetch e-mails from external IMAP/POP3 server into local mailbox
@@ -27,16 +27,42 @@ Simple and full-featured mail server as a set of multiple docker images includes
 - Integration tests with Travis CI
 - Automated builds on DockerHub
 
+### Summary
+
+- [System Requirements](#system-requirements)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Environment variables](#environment-variables)
+- [SSL certificates](#ssl-certificates)
+- [GPG encryption](#automatic-gpg-encryption-of-all-your-e-mails)
+- [Relaying from other networks](#relaying-from-other-networks)
+- [Third-party clamav signature databases](#third-party-clamav-signature-databases)
+- [DNS resolver](#unbound-dns-resolver)
+- [Persistent files and folders](#persistent-files-and-folders-in-mntdockermail-docker-volume)
+- [Override postfix configuration](#override-postfix-configuration)
+- [Override dovecot configuration](#custom-configuration-for-dovecot)
+- [Ansible Playbooks](#ansible-playbooks)
+- [Community projects](#community-projects)
+- [Useful Thunderbird extensions](#some-useful-thunderbird-extensions-)
+- [Donation](#donation)
+
 ### System Requirements
 
-Please check, if your system meets the following minimum system requirements :
+Please check, if your system meets the following minimum requirements :
+
+#### With MariaDB and Redis on the same host :
 
 | Type | Without ClamAV | With ClamAV |
 | ---- | -------------- | ----------- |
 | CPU | 1 GHz | 1 GHz |
 | RAM | 1.5 GiB | 2 GiB |
-| Disk | 5 GiB (without emails) | 5 GiB (without emails) |
-| System | x86_64 | x86_64 |
+
+#### With MariaDB and Redis hosted on another server :
+
+| Type | Without ClamAV | With ClamAV |
+| ---- | -------------- | ----------- |
+| CPU | 1 GHz | 1 GHz |
+| RAM | 512 MiB | 1 GiB |
 
 ### Prerequisites
 
@@ -94,7 +120,7 @@ A correct DNS setup is required, this step is very important.
 
 **Notes:**
 
-* Make sure that the **PTR record** of your IP matches the FQDN of your mailserver host. This record is usually set in your web hosting interface.
+* Make sure that the **PTR record** of your IP matches the FQDN (default : mail.domain.tld) of your mailserver host. This record is usually set in your web hosting interface.
 * DKIM, SPF and DMARC records are recommended to build a good reputation score.
 * The DKIM public key will be available on host after the container startup :
 
@@ -123,49 +149,42 @@ You can audit your mailserver with the following assessment services :
 
 #### 1 - Prepare your environment
 
+:bulb: The reverse proxy used in this setup is [Traefik](https://traefik.io/), but you can use the solution of your choice (Nginx, Apache, Haproxy, Caddy, H2O...etc).
+
 ```bash
 # Create a new docker network for Traefik
 docker network create http_network
 
 # Create the required folders and files
-mkdir -p /mnt/docker/traefik/acme && cd /mnt/docker
-touch docker-compose.yml traefik/traefik.toml traefik/acme/acme.json
-chmod 600 docker-compose.yml traefik/traefik.toml traefik/acme/acme.json
+mkdir -p /mnt/docker/traefik/acme && cd /mnt/docker \
+&& curl https://raw.githubusercontent.com/hardware/mailserver/master/docker-compose.sample.yml -o docker-compose.yml \
+&& curl https://raw.githubusercontent.com/hardware/mailserver/master/sample.env -o .env \
+&& curl https://raw.githubusercontent.com/hardware/mailserver/master/traefik.sample.toml -o traefik/traefik.toml \
+&& touch traefik/acme/acme.json \
+&& chmod 600 docker-compose.yml .env traefik/traefik.toml traefik/acme/acme.json
 ```
 
-#### 2 - Get the latest docker-compose.yml and traefik.toml
-
-| Tags | Description |
-| ---- | ----------- |
-| **1.1-stable** | Stable version (v1.1-stable branch) |
-| **1.1-latest** | Latest development build* (master branch) |
-
-\*These builds have been validated through the CI automation system but they are not meant for deployment in production.
-
-* [docker-compose.yml](https://github.com/hardware/mailserver/blob/master/docker-compose.sample.yml)
-* [traefik.toml](https://github.com/hardware/mailserver/blob/master/traefik.sample.toml)
-
-Don't forget to replace all values surrounded by **{{ }}** mark. Then, start all services :
+Edit the `.env` and `traefik.toml`, adapt to your needs, then start all services :
 
 ```
 docker-compose up -d
 ```
 
-#### 3 - Postfixadmin installation
+#### 2 - Postfixadmin installation
 
 PostfixAdmin is a web based interface used to manage mailboxes, virtual domains and aliases.
 
 * Docker image : https://github.com/hardware/postfixadmin
 * How to setup : [Postfixadmin initial configuration](https://github.com/hardware/mailserver/wiki/Postfixadmin-initial-configuration)
 
-#### 4 - Rainloop installation (optional)
+#### 3 - Rainloop installation (optional)
 
 Rainloop is a simple, modern and fast webmail with Sieve scripts support (filters and vacation message), GPG and a modern user interface.
 
 * Docker image : https://github.com/hardware/rainloop
 * How to setup : [Rainloop initial configuration](https://github.com/hardware/mailserver/wiki/Rainloop-initial-configuration)
 
-#### 5 - Done, congratulation ! :tada:
+#### 4 - Done, congratulation ! :tada:
 
 At first launch, the container takes few minutes to generate SSL certificates (if needed), DKIM keypair and update clamav database, all of this takes some time (1/2 minutes). This image comes with a snake-oil self-signed certificate, please use your own trusted certificates. [See below](https://github.com/hardware/mailserver#ssl-certificates) for configuration.
 
@@ -210,8 +229,6 @@ You can check the startup logs with this command :
 If you use Ansible, I recommend you to go to see @ksylvan playbooks here : https://github.com/ksylvan/docker-mail-server
 
 ### Environment variables
-
-:warning: Use only ASCII printable characters in environment variables : https://en.wikipedia.org/wiki/ASCII#Printable_characters
 
 | Variable | Description | Type | Default value |
 | -------- | ----------- | ---- | ------------- |
@@ -337,6 +354,51 @@ docker logs -f mailserver
 [INFO] Using /etc/letsencrypt/live/mail.domain.tld folder
 ```
 
+Don't forget to add a new traefik frontend rule somewhere in your docker-compose.yml to generate a certificate for your mailserver FQDN (default : mail.domain.tld) subdomain.
+
+```yml
+# docker-compose.yml
+
+labels:
+  - traefik.frontend.rule=Host:mail.${DOMAIN}
+```
+
+Alternatively, you can specify your domains in the `traefik.toml` :
+
+```toml
+[acme]
+onHostRule = false
+
+[[acme.domains]]
+main = "domain.tld"
+sans = ["mail.domain.tld", "spam.domain.tld", "postfixadmin.domain.tld", "webmail.domain.tld"]
+```
+
+If the startup script does not find the appropriate SSL certificate and private key, look at Traefik's logs to see what's going on.
+
+```
+docker logs -f mailserver
+
+[INFO] Search for SSL certificates generated by Traefik
+[INFO] ...
+[INFO] ...
+[INFO] acme.json found, dumping into pem files
+[ERROR] The certificate for mail.domain.tld or the private key was not found !"
+[INFO] Don't forget to add a new traefik frontend rule to generate a certificate for mail.domain.tld subdomain"
+[INFO] Look /mnt/docker/traefik/acme/dump.log and 'docker logs traefik' for more information"
+```
+
+```toml
+# traefik.toml
+
+[acme]
+acmeLogging = true
+```
+
+```
+docker-compose restart traefik && docker logs -f traefik
+```
+
 #### Custom certificates
 
 You can use Let's Encrypt or any other certification authority. Setup your `docker-compose.yml` like this :
@@ -353,12 +415,25 @@ Request your certificates in `/mnt/docker/ssl/live/mail.domain.tld` with an [ACM
 
 Required files in this folder :
 
+:bulb: If you only have the fullchain.pem and privkey.pem, the startup script extract automatically the cert.pem and chain.pem from fullchain.pem.
+
 | Filename | Description |
 |----------|-------------|
 | privkey.pem | Private key for the certificate |
 | cert.pem | Server certificate only |
 | chain.pem | Root and intermediate certificates only, excluding server certificate |
 | fullchain.pem | All certificates, including server certificate. This is concatenation of cert.pem and chain.pem |
+
+Example with [acme.sh](https://acme.sh) :
+
+```bash
+acme.sh --install-cert -d example.com \
+--ca-file        ${VOLUMES_ROOT_PATH}/ssl/live/mail.domain.tld/chain.pem  \
+--cert-file      ${VOLUMES_ROOT_PATH}/ssl/live/mail.domain.tld/cert.pem  \
+--key-file       ${VOLUMES_ROOT_PATH}/ssl/live/mail.domain.tld/privkey.pem  \
+--fullchain-file ${VOLUMES_ROOT_PATH}/ssl/live/mail.domain.tld/fullchain.pem \
+--reloadcmd      "docker restart mailserver"
+```
 
 **Notes** :
 
@@ -390,6 +465,74 @@ openssl s_client -connect mail.domain.tld:587 -starttls smtp -tlsextdebug
 
 # IMAP SSL/TLS - 993 port (IMAPS)
 openssl s_client -connect mail.domain.tld:993 -tlsextdebug
+```
+
+### Third-party clamav signature databases
+
+[Clamav-unofficial-sigs](https://github.com/extremeshok/clamav-unofficial-sigs) provides a simple way to download and update third-party signature databases provided by Sanesecurity, FOXHOLE, OITC, Scamnailer, BOFHLAND, CRDF, Porcupine, Securiteinfo, MalwarePatrol, Yara-Rules Project, etc.
+
+Readme : https://github.com/extremeshok/clamav-unofficial-sigs
+
+#### Required Ports
+
+| Software | Protocol | Port |
+| -------- | -------- | ---- |
+| Rsync | TCP | 873 |
+| Curl | TCP | 443 |
+
+#### Enable clamav-unofficial-sigs
+
+Create your `user.conf` file under `/mnt/docker/mail/clamav-unofficial-sigs` directory to configure clamav-unofficial-sigs updater. This file override the default configuration specified in [os.conf](https://github.com/hardware/mailserver/blob/master/rootfs/etc/clamav/unofficial-sigs/os.conf) and [master.conf](https://github.com/hardware/mailserver/blob/master/rootfs/etc/clamav/unofficial-sigs/master.conf). Don't forget, once you have completed the configuration of this file, set the value of `user_configuration_complete` to `yes` otherwise the script will not be able to execute.
+
+```ini
+# /mnt/docker/mail/clamav-unofficial-sigs/user.conf
+
+# =========================
+# MalwarePatrol : https://www.malwarepatrol.net
+# MalwarePatrol 2016 (free) clamav signatures
+#
+# 1. Sign up for an account : https://www.malwarepatrol.net/signup-free.shtml
+# 2. You will receive an email containing your password/receipt number
+# 3. Login to your account at malwarePatrol
+# 4. In My Accountpage, choose the ClamAV list you will download. Free subscribers only get ClamAV Basic, commercial subscribers have access to ClamAV Extended. Do not use the agressive lists.
+# 5. In the download URL, you will see 3 parameters: receipt, product and list, enter them in the variables below.
+# malwarepatrol_receipt_code="YOUR-RECEIPT-NUMBER"
+# malwarepatrol_product_code="8"
+# malwarepatrol_list="clamav_basic"
+# malwarepatrol_free="yes"
+
+# =========================
+# SecuriteInfo : https://www.SecuriteInfo.com
+# SecuriteInfo 2015 free clamav signatures
+#
+# Usage of SecuriteInfo 2015 free clamav signatures : https://www.securiteinfo.com
+# - 1. Sign up for a free account : https://www.securiteinfo.com/clients/customers/signup
+# - 2. You will receive an email to activate your account and then a followup email with your login name
+# - 3. Login and navigate to your customer account : https://www.securiteinfo.com/clients/customers/account
+# - 4. Click on the Setup tab
+# - 5. You will need to get your unique identifier from one of the download links, they are individual for every user
+# - 5.1. The 128 character string is after the http://www.securiteinfo.com/get/signatures/
+# - 5.2. Example https://www.securiteinfo.com/get/signatures/your_unique_and_very_long_random_string_of_characters/securiteinfo.hdb
+#   Your 128 character authorisation signature would be : your_unique_and_very_long_random_string_of_characters
+# - 6. Enter the authorisation signature into the config securiteinfo_authorisation_signature: replacing YOUR-SIGNATURE-NUMBER with your authorisation signature from the link
+# securiteinfo_authorisation_signature="YOUR-SIGNATURE-NUMBER"
+
+# After you have completed the configuration of this file, set the value to "yes"
+user_configuration_complete="yes"
+```
+
+If the startup script detects this file, clamav-unofficial-sigs is automatically enabled and third-party databases downloaded under `/mnt/docker/mail/clamav` after clamav startup. Once the databases are downloaded, a SIGHUP signal is sent to clamav to load the received signatures :
+
+```
+docker logs -f mailserver
+
+[INFO] clamav-unofficial-sigs is enabled (user configuration found)
+[...]
+s6-supervise : clamav unofficial signature update running
+s6-supervise : virus database downloaded, spawning clamd process
+[...]
+clamd[xxxxxx]: SIGHUP caught: re-opening log file.
+s6-supervise : clamav unofficial signature update done
 ```
 
 ### Unbound DNS resolver
@@ -432,6 +575,8 @@ Documentation : https://www.unbound.net/documentation/unbound-control.html
    │     bytecode.cvd
    │     daily.cld
    │     main.cvd
+   ├──clamav-unofficial-sigs
+   │     user.conf
    ├──rspamd (Rspamd databases directory)
    │     rspamd.rrd
    |     stats.ucl
@@ -536,14 +681,15 @@ plugin {
 
 ### Components
 
-- Postfix 3.1.4
+- Postfix 3.1.6
 - Dovecot 2.2.27
-- Rspamd 1.6.5
+- Rspamd 1.6.6
 - Fetchmail 6.3.26
 - ClamAV 0.99.2
-- Zeyple 1.2.1
+- Clamav Unofficial Sigs 5.6.2
+- Zeyple 1.2.2
 - Unbound 1.6.0
-- s6 2.6.1.1
+- s6 2.7.0.0
 - Rsyslog 8.24.0
 - ManageSieve server
 

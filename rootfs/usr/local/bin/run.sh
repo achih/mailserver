@@ -118,9 +118,14 @@ if [ -f "$ACME_PATH"/acme.json ]; then
     mv -f "$CERT_TEMP_PATH"/certs/"$FQDN".crt "$LETS_ENCRYPT_LIVE_PATH"/fullchain.pem
     mv -f "$CERT_TEMP_PATH"/private/"$FQDN".key "$LETS_ENCRYPT_LIVE_PATH"/privkey.pem
     rm -rf "$CERT_TEMP_PATH" "$ACME_PATH"/dump.log
+  elif [ -e "$CERT_TEMP_PATH"/certs/"$DOMAIN".crt ] && [ -e "$CERT_TEMP_PATH"/private/"$DOMAIN".key ]; then
+    mv -f "$CERT_TEMP_PATH"/certs/"$DOMAIN".crt "$LETS_ENCRYPT_LIVE_PATH"/fullchain.pem
+    mv -f "$CERT_TEMP_PATH"/private/"$DOMAIN".key "$LETS_ENCRYPT_LIVE_PATH"/privkey.pem
+    rm -rf "$CERT_TEMP_PATH" "$ACME_PATH"/dump.log
   else
-    echo "[ERROR] ${FQDN}.crt or ${FQDN}.key not found !"
-    echo "[ERROR] Look /mnt/docker/traefik/acme/dump.log for more information"
+    echo "[ERROR] The certificate for ${FQDN} or the private key was not found !"
+    echo "[INFO] Don't forget to add a new traefik frontend rule to generate a certificate for ${FQDN} subdomain"
+    echo "[INFO] Look /mnt/docker/traefik/acme/dump.log and 'docker logs traefik' for more information"
     exit 1
   fi
 
@@ -221,15 +226,16 @@ done
 # ENVIRONMENT VARIABLES TEMPLATING
 # ---------------------------------------------------------------------------------------------
 
-# Avoid envtpl error if cron file doesn't exist
+# Avoid gucci error if cron file doesn't exist
 if [ ! -f /etc/cron.d/fetchmail ]; then
   touch /etc/cron.d/fetchmail
 fi
 
-# Replace ENV vars
+# Replace environment variables with Gucci
+# https://github.com/noqcks/gucci
+# Gucci requires files to have .tpl extension
 _envtpl() {
-  mv "$1" "$1.tpl" # envtpl requires files to have .tpl extension
-  envtpl "$1.tpl"
+  mv "$1" "$1.tpl" && gucci "$1.tpl" > "$1" && rm -f "$1.tpl"
 }
 
 _envtpl /etc/postfix/main.cf
@@ -287,7 +293,9 @@ if [ "$DISABLE_MARIADB_HOSTNAME" = false ]; then
       exit 1
     fi
   else
-    echo "[INFO] MariaDB hostname found in /etc/hosts"
+    echo "[ERROR] Container IP not found with embedded DNS server... Abort !"
+    echo "[ERROR] Check your DBHOST environment variable"
+    exit 1
   fi
 fi
 
@@ -306,7 +314,9 @@ if [ "$DISABLE_REDISDB_HOSTNAME" = false ]; then
       exit 1
     fi
   else
-    echo "[INFO] Redis hostname found in /etc/hosts"
+    echo "[ERROR] Container IP not found with embedded DNS server... Abort !"
+    echo "[ERROR] Check your REDIS_HOST environment variable"
+    exit 1
   fi
 fi
 
@@ -688,6 +698,21 @@ fi
 # Create clamd directories
 mkdir -p /var/run/clamav /var/mail/clamav /var/log/clamav
 chown -R clamav:clamav /var/run/clamav /var/mail/clamav /var/log/clamav
+
+# CLAMAV-UNOFFICIAL-SIGS
+# ---------------------------------------------------------------------------------------------
+
+if [ -f "/var/mail/clamav-unofficial-sigs/user.conf" ]; then
+  echo "[INFO] clamav-unofficial-sigs is enabled (user configuration found)"
+  rm -rf /var/lib/clamav-unofficial-sigs
+  ln -s /var/mail/clamav-unofficial-sigs /var/lib/clamav-unofficial-sigs
+  cp -f /var/mail/clamav-unofficial-sigs/user.conf /etc/clamav/unofficial-sigs
+  mkdir -p /var/log/clamav-unofficial-sigs
+  clamav-unofficial-sigs.sh --install-cron &>/dev/null
+  clamav-unofficial-sigs.sh --install-logrotate &>/dev/null
+else
+  echo "[INFO] clamav-unofficial-sigs is disabled (user configuration not found)"
+fi
 
 # MISCELLANEOUS
 # ---------------------------------------------------------------------------------------------
