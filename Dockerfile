@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y -q --no-install-recommends \
     clamav clamav-daemon \
     python-setuptools python-gpgme \
     rsyslog dnsutils curl unbound jq rsync \
+    vim \
  && rm -rf /var/spool/postfix \
  && ln -s /var/mail/postfix/spool /var/spool/postfix \
  && apt-get autoremove -y \
