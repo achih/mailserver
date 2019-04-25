@@ -1,5 +1,12 @@
 version: "3"
 
+# IPv4 only
+# docker network create http_network
+
+# IPv4/IPv6 network
+# docker network create http_network --ipv6 --subnet "fd00:0000:0000:0000::/64"
+# Refer to https://github.com/hardware/mailserver/#ipv6-support for more information.
+
 networks:
   http_network:
     external: true
@@ -8,7 +15,7 @@ networks:
 
 services:
   traefik:
-    image: traefik:1.5-alpine
+    image: traefik:1.7-alpine
     container_name: traefik
     restart: ${RESTART_MODE}
     ports:
@@ -16,8 +23,8 @@ services:
       - "443:443"
     labels:
       - traefik.enable=true
-      - traefik.frontend.rule=Host:mail.${DOMAIN}
-      - traefik.backend.port=8080
+      - traefik.frontend.rule=Host:mail.${MAILSERVER_DOMAIN}
+      - traefik.port=8080
       - traefik.docker.network=http_network
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -30,12 +37,12 @@ services:
     image: hardware/mailserver:${MAILSERVER_DOCKER_TAG}
     container_name: mailserver
     restart: ${RESTART_MODE}
-    domainname: ${DOMAIN}                    # Mail server A/MX/FQDN & reverse PTR = mail.domain.tld.
-    hostname: ${HOSTNAME}
+    domainname: ${MAILSERVER_DOMAIN}                    # Mail server A/MX/FQDN & reverse PTR = mail.domain.tld.
+    hostname: ${MAILSERVER_HOSTNAME}
     labels:
       - traefik.enable=true
-      - traefik.frontend.rule=Host:spam.${DOMAIN}
-      - traefik.backend.port=11334
+      - traefik.frontend.rule=Host:spam.${MAILSERVER_DOMAIN}
+      - traefik.port=11334
       - traefik.docker.network=http_network
     # extra_hosts:                          - Required for external database (on other server or for local databases on host without docker)
     #  - "mariadb:xx.xx.xx.xx"              - Replace with IP address of MariaDB server
@@ -53,12 +60,13 @@ services:
       - DBPASS=${DATABASE_USER_PASSWORD}       # MariaDB database password (required)
       - RSPAMD_PASSWORD=${RSPAMD_PASSWORD}     # Rspamd WebUI password (required)
     # - ADD_DOMAINS=aa.tld, www.bb.tld...      # Add additional domains separated by commas (needed for dkim keys etc.)
+    # - DEBUG_MODE=true                        # Enable Postfix, Dovecot, Rspamd and Unbound verbose logging
     # - ENABLE_POP3=true                       # Enable POP3 protocol
     # - ENABLE_FETCHMAIL=true                  # Enable fetchmail forwarding
+    # - DISABLE_RATELIMITING=false             # Enable ratelimiting policy
     # - DISABLE_CLAMAV=true                    # Disable virus scanning
     # - DISABLE_SIGNING=true                   # Disable DKIM/ARC signing
     # - DISABLE_GREYLISTING=true               # Disable greylisting policy
-    # - DISABLE_RATELIMITING=true              # Disable ratelimiting policy
     #
     # Full list : https://github.com/hardware/mailserver#environment-variables
     #
@@ -79,12 +87,12 @@ services:
     image: hardware/postfixadmin
     container_name: postfixadmin
     restart: ${RESTART_MODE}
-    domainname: ${DOMAIN}
-    hostname: ${HOSTNAME}
+    domainname: ${MAILSERVER_DOMAIN}
+    hostname: ${MAILSERVER_HOSTNAME}
     labels:
       - traefik.enable=true
-      - traefik.frontend.rule=Host:postfixadmin.${DOMAIN}
-      - traefik.backend.port=8888
+      - traefik.frontend.rule=Host:postfixadmin.${MAILSERVER_DOMAIN}
+      - traefik.port=8888
       - traefik.docker.network=http_network
     environment:
       - DBPASS=${DATABASE_USER_PASSWORD}
@@ -105,8 +113,8 @@ services:
     restart: ${RESTART_MODE}
     labels:
       - traefik.enable=true
-      - traefik.backend.port=8888
-      - traefik.frontend.rule=Host:webmail.${DOMAIN}
+      - traefik.port=8888
+      - traefik.frontend.rule=Host:webmail.${MAILSERVER_DOMAIN}
       - traefik.docker.network=http_network
     volumes:
       - ${VOLUMES_ROOT_PATH}/rainloop:/rainloop/data
@@ -116,6 +124,28 @@ services:
     networks:
       - mail_network
       - http_network
+
+  # Alternative webmail (Optional)
+  # https://github.com/hardware/afterlogic-webmail-lite
+  # https://afterlogic.org/webmail-lite
+  # Configuration : https://github.com/hardware/mailserver/wiki/AfterLogic-Webmail-Lite-initial-configuration
+  # afterlogic-webmail-lite:
+  #   image: hardware/afterlogic-webmail-lite
+  #   container_name: afterlogic-webmail-lite
+  #   restart: ${RESTART_MODE}
+  #   labels:
+  #     - traefik.enable=true
+  #     - traefik.port=8888
+  #     - traefik.frontend.rule=Host:webmail.${MAILSERVER_DOMAIN}
+  #     - traefik.docker.network=http_network
+  #   volumes:
+  #     - ${VOLUMES_ROOT_PATH}/afterlogic-webmail-lite:/afterlogic-webmail-lite/data
+  #   depends_on:
+  #     - mailserver
+  #     - mariadb
+  #   networks:
+  #     - mail_network
+  #     - http_network
 
   # Authoritative DNS server (Optional)
   # https://github.com/hardware/nsd-dnssec
@@ -131,7 +161,7 @@ services:
   #   volumes:
   #     - ${VOLUMES_ROOT_PATH}/nsd/conf:/etc/nsd
   #     - ${VOLUMES_ROOT_PATH}/nsd/zones:/zones
-  #     - ${VOLUMES_ROOT_PATH}/nsd/db:/var/db/nsd
+  #     - ${VOLUMES_ROOT_PATH}/nsd/db:/var/db/nsd
 
   # Database
   # https://github.com/docker-library/mariadb
@@ -142,7 +172,7 @@ services:
     restart: ${RESTART_MODE}
     # Info : These variables are ignored when the volume already exists (if databases was created before).
     environment:
-      - MYSQL_ROOT_PASSWORD=${DATABASE_ROOT_PASSWORD}
+      - MYSQL_RANDOM_ROOT_PASSWORD=yes
       - MYSQL_DATABASE=postfix
       - MYSQL_USER=postfix
       - MYSQL_PASSWORD=${DATABASE_USER_PASSWORD}

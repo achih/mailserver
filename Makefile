@@ -11,18 +11,31 @@ build:
 	docker build -t $(NAME) .
 
 init:
-	-docker rm -f mariadb redis mailserver_default mailserver_reverse mailserver_ecdsa mailserver_traefik_acme
+	-docker rm -f \
+		mariadb postgres redis \
+		mailserver_default mailserver_reverse mailserver_ecdsa \
+		mailserver_traefik_acmev1 mailserver_traefik_acmev2
+
 	sleep 2
 
 	docker run \
 		-d \
 		--name mariadb \
-		-e MYSQL_ROOT_PASSWORD=testpasswd \
+		-e MYSQL_RANDOM_ROOT_PASSWORD=yes \
 		-e MYSQL_DATABASE=postfix \
 		-e MYSQL_USER=postfix \
 		-e MYSQL_PASSWORD=testpasswd \
 		-v "`pwd`/test/config/mariadb":/docker-entrypoint-initdb.d \
 		-t mariadb:10.2
+
+	docker run \
+		-d \
+		--name postgres \
+		-e POSTGRES_DB=postfix \
+		-e POSTGRES_USER=postfix \
+		-e POSTGRES_PASSWORD=testpasswd \
+		-v "`pwd`/test/config/postgres":/docker-entrypoint-initdb.d \
+		-t postgres:10.5-alpine
 
 	docker run \
 		-d \
@@ -46,6 +59,7 @@ init:
 		-v "`pwd`/test/share/tests":/tmp/tests \
 		-v "`pwd`/test/share/ssl/rsa":/var/mail/ssl \
 		-v "`pwd`/test/share/postfix/custom.conf":/var/mail/postfix/custom.conf \
+		-v "`pwd`/test/share/postfix/sender_access":/var/mail/postfix/sender_access \
 		-v "`pwd`/test/share/dovecot/conf.d":/var/mail/dovecot/conf.d \
 		-v "`pwd`/test/share/clamav/unofficial-sigs/user.conf":/var/mail/clamav-unofficial-sigs/user.conf \
 		-h mail.domain.tld \
@@ -54,11 +68,14 @@ init:
 	docker run \
 		-d \
 		--name mailserver_reverse \
-		--link mariadb:mariadb \
+		--link postgres:postgres \
 		--link redis:redis \
 		-e FQDN=mail.domain.tld \
 		-e DOMAIN=domain.tld \
-		-e DBPASS=/tmp/passwd/mariadb \
+		-e DBDRIVER=pgsql \
+		-e DBHOST=postgres \
+		-e DBPORT=5432 \
+		-e DBPASS=/tmp/passwd/postgres \
 		-e REDIS_HOST=redis \
 		-e REDIS_PORT=6379 \
 		-e REDIS_PASS=/tmp/passwd/redis \
@@ -75,6 +92,7 @@ init:
 		-e DISABLE_DNS_RESOLVER=true \
 		-e ENABLE_POP3=true \
 		-e ENABLE_ENCRYPTION=true \
+		-e ENABLE_FETCHMAIL=true \
 		-e OPENDKIM_KEY_LENGTH=4096 \
 		-e TESTING=true \
 		-v "`pwd`/test/share/tests":/tmp/tests \
@@ -95,6 +113,7 @@ init:
 		-e VMAILGID=`id -g` \
 		-e DISABLE_CLAMAV=true \
 		-e DISABLE_RSPAMD_MODULE=rbl,mx_check,url_redirector \
+		-e WHITELIST_SPAM_ADDRESSES=test@example.com,another@domain.tld \
 		-e TESTING=true \
 		-v "`pwd`/test/share/ssl/ecdsa":/var/mail/ssl \
 		-v "`pwd`/test/share/postfix/custom.ecdsa.conf":/var/mail/postfix/custom.conf \
@@ -103,16 +122,33 @@ init:
 
 	docker run \
 		-d \
-		--name mailserver_traefik_acme \
+		--name mailserver_traefik_acmev1 \
 		--link mariadb:mariadb \
 		--link redis:redis \
+		-e DEBUG_MODE=dovecot,postfix \
 		-e DBPASS=testpasswd \
 		-e RSPAMD_PASSWORD=testpasswd \
 		-e VMAILUID=`id -u` \
 		-e VMAILGID=`id -g` \
 		-e DISABLE_CLAMAV=true \
 		-e TESTING=true \
-		-v "`pwd`/test/share/traefik":/etc/letsencrypt/acme \
+		-v "`pwd`/test/share/traefik/acme.v1.json":/etc/letsencrypt/acme/acme.json \
+		-h mail.domain.tld \
+		-t $(NAME)
+
+	docker run \
+		-d \
+		--name mailserver_traefik_acmev2 \
+		--link mariadb:mariadb \
+		--link redis:redis \
+		-e DEBUG_MODE=true \
+		-e DBPASS=testpasswd \
+		-e RSPAMD_PASSWORD=testpasswd \
+		-e VMAILUID=`id -u` \
+		-e VMAILGID=`id -g` \
+		-e DISABLE_CLAMAV=true \
+		-e TESTING=true \
+		-v "`pwd`/test/share/traefik/acme.v2.json":/etc/letsencrypt/acme/acme.json \
 		-h mail.domain.tld \
 		-t $(NAME)
 
@@ -121,8 +157,10 @@ init:
 
 fixtures:
 
-	# Wait for clamav virus database update
-	sleep 120
+	# Wait for clamav unofficial sigs database update
+	docker exec mailserver_default /bin/sh -c "while [ -f /var/lib/clamav-unofficial-sigs/pid/clamav-unofficial-sigs.pid ] ; do sleep 1 ; done"
+	# Wait for clamav load databases
+	docker exec mailserver_default /bin/sh -c "while ! echo PING | nc -z 0.0.0.0 3310 ; do sleep 1 ; done"
 
 	docker exec mailserver_default /bin/sh -c "nc 0.0.0.0 25 < /tmp/tests/email-templates/external-to-existing-user.txt"
 	docker exec mailserver_default /bin/sh -c "nc 0.0.0.0 25 < /tmp/tests/email-templates/external-to-existing-user-spam-learning.txt"
@@ -132,6 +170,7 @@ fixtures:
 	docker exec mailserver_default /bin/sh -c "nc 0.0.0.0 25 < /tmp/tests/email-templates/external-spam-to-existing-user.txt"
 	docker exec mailserver_default /bin/sh -c "nc 0.0.0.0 25 < /tmp/tests/email-templates/external-virus-to-existing-user.txt"
 	docker exec mailserver_default /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:587 -starttls smtp < /tmp/tests/email-templates/internal-user-to-existing-user.txt"
+	docker exec mailserver_default /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:587 -starttls smtp < /tmp/tests/email-templates/internal-rejected-user-to-existing-user.txt"
 	sleep 2
 	docker exec mailserver_default /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:993 < /tmp/tests/sieve/trigger-spam-ham-learning.txt"
 

@@ -238,7 +238,7 @@ load 'test_helper/bats-assert/load'
 }
 
 @test "checking process: no service restarted (reverse configuration)" {
-  run docker exec mailserver_default cat /tmp/counters/_parent
+  run docker exec mailserver_reverse cat /tmp/counters/_parent
   assert_success
   assert_output 0
   run docker exec mailserver_reverse cat /tmp/counters/clamd
@@ -381,6 +381,16 @@ load 'test_helper/bats-assert/load'
   assert_failure
 }
 
+@test "checking port (10025): internal port closed (default configuration)" {
+  run docker exec mailserver_default /bin/sh -c "nc -z 127.0.0.1 10025"
+  assert_failure
+}
+
+@test "checking port (10025): internal port listening (reverse configuration)" {
+  run docker exec mailserver_reverse /bin/sh -c "nc -z 127.0.0.1 10025"
+  assert_success
+}
+
 @test "checking port (10026): internal port listening (default configuration)" {
   run docker exec mailserver_default /bin/sh -c "nc -z 127.0.0.1 10026"
   assert_success
@@ -401,16 +411,6 @@ load 'test_helper/bats-assert/load'
   assert_success
 }
 
-@test "checking port (11333): external port listening (default configuration)" {
-  run docker exec mailserver_default /bin/sh -c "nc -z 0.0.0.0 11333"
-  assert_success
-}
-
-@test "checking port (11333): external port listening (reverse configuration)" {
-  run docker exec mailserver_reverse /bin/sh -c "nc -z 0.0.0.0 11333"
-  assert_success
-}
-
 @test "checking port (11334): external port listening (default configuration)" {
   run docker exec mailserver_default /bin/sh -c "nc -z 0.0.0.0 11334"
   assert_success
@@ -425,8 +425,13 @@ load 'test_helper/bats-assert/load'
 # sasl
 #
 
-@test "checking sasl: dovecot auth with good password" {
+@test "checking sasl: dovecot auth with good password (default configuration)" {
   run docker exec mailserver_default /bin/sh -c "doveadm auth test sarah.connor@domain.tld testpasswd12 | grep 'auth succeeded'"
+  assert_success
+}
+
+@test "checking sasl: dovecot auth with good password (reverse configuration)" {
+  run docker exec mailserver_reverse /bin/sh -c "doveadm auth test sarah.connor@domain.tld testpasswd12 | grep 'auth succeeded'"
   assert_success
 }
 
@@ -452,8 +457,13 @@ load 'test_helper/bats-assert/load'
 # YmFkcGFzc3dvcmQ=
 #   echo -ne 'badpassword' | openssl base64
 
-@test "checking smtp (25): STARTTLS AUTH PLAIN works with good password" {
+@test "checking smtp (25): STARTTLS AUTH PLAIN works with good password (default configuration)" {
   run docker exec mailserver_default /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:25 -starttls smtp < /tmp/tests/auth/smtp-auth-plain.txt 2>&1 | grep -i 'authentication successful'"
+  assert_success
+}
+
+@test "checking smtp (25): STARTTLS AUTH PLAIN works with good password (reverse configuration)" {
+  run docker exec mailserver_reverse /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:25 -starttls smtp < /tmp/tests/auth/smtp-auth-plain.txt 2>&1 | grep -i 'authentication successful'"
   assert_success
 }
 
@@ -467,8 +477,13 @@ load 'test_helper/bats-assert/load'
   assert_success
 }
 
-@test "checking submission (587): STARTTLS AUTH LOGIN works with good password" {
+@test "checking submission (587): STARTTLS AUTH LOGIN works with good password (default configuration)" {
   run docker exec mailserver_default /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:587 -starttls smtp < /tmp/tests/auth/smtp-auth-login.txt 2>&1 | grep -i 'authentication successful'"
+  assert_success
+}
+
+@test "checking submission (587): STARTTLS AUTH LOGIN works with good password (reverse configuration)" {
+  run docker exec mailserver_reverse /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:587 -starttls smtp < /tmp/tests/auth/smtp-auth-login.txt 2>&1 | grep -i 'authentication successful'"
   assert_success
 }
 
@@ -482,8 +497,13 @@ load 'test_helper/bats-assert/load'
   assert_success
 }
 
-@test "checking smtps (465): SSL/TLS AUTH LOGIN works with good password" {
+@test "checking smtps (465): SSL/TLS AUTH LOGIN works with good password (default configuration)" {
   run docker exec mailserver_default /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:465 < /tmp/tests/auth/smtp-auth-login.txt 2>&1 | grep -i 'authentication successful'"
+  assert_success
+}
+
+@test "checking smtps (465): SSL/TLS AUTH LOGIN works with good password (reverse configuration)" {
+  run docker exec mailserver_reverse /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:465 < /tmp/tests/auth/smtp-auth-login.txt 2>&1 | grep -i 'authentication successful'"
   assert_success
 }
 
@@ -523,7 +543,7 @@ load 'test_helper/bats-assert/load'
 }
 
 @test "checking smtp: rejects mail to unknown user (reverse configuration)" {
-  run docker exec mailserver_default /bin/sh -c "grep '<ghost@domain.tld>: Recipient address rejected: User unknown in virtual mailbox table' /var/log/mail.log | wc -l"
+  run docker exec mailserver_reverse /bin/sh -c "grep '<ghost@domain.tld>: Recipient address rejected: User unknown in virtual mailbox table' /var/log/mail.log | wc -l"
   assert_success
   assert_output 1
 }
@@ -544,8 +564,13 @@ load 'test_helper/bats-assert/load'
 # imap
 #
 
-@test "checking imap (143): STARTTLS login works with good password" {
+@test "checking imap (143): STARTTLS login works with good password (default configuration)" {
   run docker exec mailserver_default /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:143 -starttls imap < /tmp/tests/auth/imap-auth.txt 2>&1 | grep -i 'logged in'"
+  assert_success
+}
+
+@test "checking imap (143): STARTTLS login works with good password (reverse configuration)" {
+  run docker exec mailserver_reverse /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:143 -starttls imap < /tmp/tests/auth/imap-auth.txt 2>&1 | grep -i 'logged in'"
   assert_success
 }
 
@@ -554,8 +579,13 @@ load 'test_helper/bats-assert/load'
   assert_success
 }
 
-@test "checking imaps (993): SSL/TLS login works with good password" {
+@test "checking imaps (993): SSL/TLS login works with good password (default configuration)" {
   run docker exec mailserver_default /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:993 < /tmp/tests/auth/imap-auth.txt 2>&1 | grep -i 'logged in'"
+  assert_success
+}
+
+@test "checking imaps (993): SSL/TLS login works with good password (reverse configuration)" {
+  run docker exec mailserver_reverse /bin/sh -c "openssl s_client -ign_eof -connect 0.0.0.0:993 < /tmp/tests/auth/imap-auth.txt 2>&1 | grep -i 'logged in'"
   assert_success
 }
 
@@ -660,19 +690,59 @@ load 'test_helper/bats-assert/load'
   assert_output "enabled = false;"
 }
 
+@test "checking rspamd: 2 addresses whitelisted in ecdsa configuration" {
+  run docker exec mailserver_ecdsa /bin/bash -c "grep '\"test@example.com\",\"another@domain.tld\"' /etc/rspamd/local.d/settings.conf | wc -l"
+  assert_success
+  assert_output 1
+}
+
+@test "checking rspamd: 1 address whitelisted in default configuration" {
+  run docker exec mailserver_default /bin/bash -c "grep 'postmaster@domain.tld' /etc/rspamd/local.d/settings.conf | wc -l"
+  assert_success
+  assert_output 1
+}
+
+@test "checking rspamd: debug mode disabled (default configuration)" {
+  run docker exec mailserver_default /bin/sh -c 'rspamadm configdump | grep -E "level = \"warning\";"'
+  assert_success
+}
+
+@test "checking rspamd: debug mode disabled (traefik_acmev1 configuration)" {
+  run docker exec mailserver_traefik_acmev1 /bin/sh -c 'rspamadm configdump | grep -E "level = \"warning\";"'
+  assert_success
+}
+
+@test "checking rspamd: debug mode enabled (traefik_acmev2 configuration)" {
+  run docker exec mailserver_traefik_acmev2 /bin/sh -c 'rspamadm configdump | grep -E "level = \"info\";"'
+  assert_success
+}
+
 #
 # accounts
 #
 
-@test "checking accounts: user accounts" {
+@test "checking accounts: user accounts (default configuration)" {
   run docker exec mailserver_default doveadm user '*'
   assert_success
   [ "${lines[0]}" = "john.doe@domain.tld" ]
   [ "${lines[1]}" = "sarah.connor@domain.tld" ]
 }
 
-@test "checking accounts: user quotas" {
+@test "checking accounts: user accounts (reverse configuration)" {
+  run docker exec mailserver_reverse doveadm user '*'
+  assert_success
+  [ "${lines[0]}" = "john.doe@domain.tld" ]
+  [ "${lines[1]}" = "sarah.connor@domain.tld" ]
+}
+
+@test "checking accounts: user quotas (default configuration)" {
   run docker exec mailserver_default /bin/bash -c "doveadm quota get -A 2>&1 | grep '1000' | wc -l"
+  assert_success
+  assert_output 2
+}
+
+@test "checking accounts: user quotas (reverse configuration)" {
+  run docker exec mailserver_reverse /bin/bash -c "doveadm quota get -A 2>&1 | grep '1000' | wc -l"
   assert_success
   assert_output 2
 }
@@ -821,6 +891,45 @@ load 'test_helper/bats-assert/load'
   assert_output ""
 }
 
+@test "checking postfix: smtpd_sender_login mysql maps (default configuration)" {
+  run docker exec mailserver_default /bin/sh -c "postconf -h smtpd_sender_login_maps | grep 'mysql'"
+  assert_success
+}
+
+@test "checking postfix: smtpd_sender_login pgsql maps (reverse configuration)" {
+  run docker exec mailserver_reverse /bin/sh -c "postconf -h smtpd_sender_login_maps | grep 'pgsql'"
+  assert_success
+}
+
+@test "checking postfix: verbose mode disabled (default configuration)" {
+  run docker exec mailserver_default /bin/sh -c "grep 'smtpd -v' /etc/postfix/master.cf | wc -l"
+  assert_success
+  assert_output 0
+}
+
+@test "checking postfix: verbose mode enabled (traefik_acmev1 configuration)" {
+  run docker exec mailserver_traefik_acmev1 /bin/sh -c "grep 'smtpd -v' /etc/postfix/master.cf | wc -l"
+  assert_success
+  assert_output 3
+}
+
+@test "checking postfix: verbose mode enabled (traefik_acmev2 configuration)" {
+  run docker exec mailserver_traefik_acmev2 /bin/sh -c "grep 'smtpd -v' /etc/postfix/master.cf | wc -l"
+  assert_success
+  assert_output 3
+}
+
+@test "checking postfix: master.cf custom service parameter" {
+  run docker exec mailserver_default postconf -P submission/inet/syslog_name
+  assert_success
+  assert_output "submission/inet/syslog_name = postfix/submission-custom"
+}
+
+@test "checking postfix: sender access reject john.doe" {
+  run docker exec mailserver_default grep -i '<john.doe@domain.tld>: Sender address rejected: Access denied' /var/log/mail.log
+  assert_success
+}
+
 #
 # dovecot
 #
@@ -886,6 +995,79 @@ load 'test_helper/bats-assert/load'
   run docker exec mailserver_default /bin/sh -c "doveconf -h -f protocol=pop3 mail_max_userip_connections 2>/dev/null"
   assert_success
   assert_output "50"
+}
+
+@test "checking dovecot: quota dict mysql (default configuration)" {
+  run docker exec mailserver_default /bin/sh -c "doveconf dict sqlquota 2>/dev/null | grep 'mysql'"
+  assert_success
+}
+
+@test "checking dovecot: quota dict pgsql (reverse configuration)" {
+  run docker exec mailserver_reverse /bin/sh -c "doveconf dict sqlquota 2>/dev/null | grep 'pgsql'"
+  assert_success
+}
+
+@test "checking dovecot: debug mode disabled (default configuration)" {
+  run docker exec mailserver_default /bin/sh -c "doveconf -h auth_verbose 2>/dev/null"
+  assert_success
+  assert_output "no"
+  run docker exec mailserver_default /bin/sh -c "doveconf -h auth_verbose_passwords 2>/dev/null"
+  assert_success
+  assert_output "no"
+  run docker exec mailserver_default /bin/sh -c "doveconf -h auth_debug 2>/dev/null"
+  assert_success
+  assert_output "no"
+  run docker exec mailserver_default /bin/sh -c "doveconf -h auth_debug_passwords 2>/dev/null"
+  assert_success
+  assert_output "no"
+  run docker exec mailserver_default /bin/sh -c "doveconf -h mail_debug 2>/dev/null"
+  assert_success
+  assert_output "no"
+  run docker exec mailserver_default /bin/sh -c "doveconf -h verbose_ssl 2>/dev/null"
+  assert_success
+  assert_output "no"
+}
+
+@test "checking dovecot: debug mode enabled (traefik_acmev1 configuration)" {
+  run docker exec mailserver_traefik_acmev1 /bin/sh -c "doveconf -h auth_verbose 2>/dev/null"
+  assert_success
+  assert_output "yes"
+  run docker exec mailserver_traefik_acmev1 /bin/sh -c "doveconf -h auth_verbose_passwords 2>/dev/null"
+  assert_success
+  assert_output "sha1"
+  run docker exec mailserver_traefik_acmev1 /bin/sh -c "doveconf -h auth_debug 2>/dev/null"
+  assert_success
+  assert_output "yes"
+  run docker exec mailserver_traefik_acmev1 /bin/sh -c "doveconf -h auth_debug_passwords 2>/dev/null"
+  assert_success
+  assert_output "yes"
+  run docker exec mailserver_traefik_acmev1 /bin/sh -c "doveconf -h mail_debug 2>/dev/null"
+  assert_success
+  assert_output "yes"
+  run docker exec mailserver_traefik_acmev1 /bin/sh -c "doveconf -h verbose_ssl 2>/dev/null"
+  assert_success
+  assert_output "yes"
+}
+
+@test "checking dovecot: debug mode enabled (traefik_acmev2 configuration)" {
+  run docker exec mailserver_traefik_acmev2 /bin/sh -c "doveconf -h auth_verbose 2>/dev/null"
+  assert_success
+  assert_output "yes"
+  run docker exec mailserver_traefik_acmev2 /bin/sh -c "doveconf -h auth_verbose_passwords 2>/dev/null"
+  assert_success
+  assert_output "sha1"
+  run docker exec mailserver_traefik_acmev2 /bin/sh -c "doveconf -h auth_debug 2>/dev/null"
+  assert_success
+  assert_output "yes"
+  run docker exec mailserver_traefik_acmev2 /bin/sh -c "doveconf -h auth_debug_passwords 2>/dev/null"
+  assert_success
+  assert_output "yes"
+  run docker exec mailserver_traefik_acmev2 /bin/sh -c "doveconf -h mail_debug 2>/dev/null"
+  assert_success
+  assert_output "yes"
+  run docker exec mailserver_traefik_acmev2 /bin/sh -c "doveconf -h verbose_ssl 2>/dev/null"
+  assert_success
+  assert_output "yes"
 }
 
 #
@@ -963,6 +1145,24 @@ load 'test_helper/bats-assert/load'
 @test "checking clamav-unofficial-sigs: logrotate task doesn't exist (reverse configuration)" {
   run docker exec mailserver_reverse [ -f /etc/logrotate.d/clamav-unofficial-sigs ]
   assert_failure
+}
+
+@test "checking clamav-unofficial-sigs: TEST 1 — Html.Sanesecurity.TestSig_Type3_Bdy" {
+  run docker exec mailserver_default /bin/sh -c "clamscan --database=/var/lib/clamav/phish.ndb - < /tmp/tests/clamav/test1.eml"
+  assert_failure
+  assert_output --partial "Sanesecurity.TestSig_Type3_Bdy.4.UNOFFICIAL FOUND"
+}
+
+@test "checking clamav-unofficial-sigs: TEST 2 — Email.Sanesecurity.TestSig_Type4_Hdr" {
+  run docker exec mailserver_default /bin/sh -c "clamscan --database=/var/lib/clamav/phish.ndb - < /tmp/tests/clamav/test2.eml"
+  assert_failure
+  assert_output --partial "Sanesecurity.TestSig_Type4_Hdr.2.UNOFFICIAL FOUND"
+}
+
+@test "checking clamav-unofficial-sigs: TEST 3 — Email.Sanesecurity.TestSig_Type4_Bdy" {
+  run docker exec mailserver_default /bin/sh -c "clamscan --database=/var/lib/clamav/phish.ndb - < /tmp/tests/clamav/test3.eml"
+  assert_failure
+  assert_output --partial "Sanesecurity.TestSig_Type4_Bdy.3.UNOFFICIAL FOUND"
 }
 
 #
@@ -1147,6 +1347,16 @@ load 'test_helper/bats-assert/load'
   assert_output 1
 }
 
+@test "checking unbound: debug mode enabled" {
+  run docker exec mailserver_traefik_acmev2 /bin/sh -c "unbound-control status | grep 'verbosity: 2'"
+  assert_success
+}
+
+@test "checking unbound: debug mode disabled" {
+  run docker exec mailserver_default /bin/sh -c "unbound-control status | grep 'verbosity: 0'"
+  assert_success
+}
+
 #
 # ssl
 #
@@ -1166,8 +1376,13 @@ load 'test_helper/bats-assert/load'
   assert_success
 }
 
-@test "checking ssl: traefik cert works correctly" {
-  run docker exec mailserver_traefik_acme /bin/sh -c "timeout 1 openssl s_client -ign_eof -connect 0.0.0.0:587 -starttls smtp | grep 'Verify return code: 21 (unable to verify the first certificate)'"
+@test "checking ssl: traefik cert works correctly (acme v1)" {
+  run docker exec mailserver_traefik_acmev1 /bin/sh -c "timeout 1 openssl s_client -ign_eof -connect 0.0.0.0:587 -starttls smtp | grep 'Verify return code: 21 (unable to verify the first certificate)'"
+  assert_success
+}
+
+@test "checking ssl: traefik cert works correctly (acme v2)" {
+  run docker exec mailserver_traefik_acmev2 /bin/sh -c "timeout 1 openssl s_client -ign_eof -connect 0.0.0.0:587 -starttls smtp | grep 'Verify return code: 21 (unable to verify the first certificate)'"
   assert_success
 }
 
@@ -1190,38 +1405,75 @@ load 'test_helper/bats-assert/load'
 }
 
 #
-# traefik acme
+# traefik acme v1
 #
 
-@test "checking traefik acme: acme.json exist" {
-  run docker exec mailserver_traefik_acme [ -f /etc/letsencrypt/acme/acme.json ]
+@test "checking traefik acme v1: acme.json exist" {
+  run docker exec mailserver_traefik_acmev1 [ -f /etc/letsencrypt/acme/acme.json ]
   assert_success
 }
 
-@test "checking traefik acme: dump.log doesn't exist" {
-  run docker exec mailserver_traefik_acme [ -f /etc/letsencrypt/acme/dump.log ]
+@test "checking traefik acme v1: dump.log doesn't exist" {
+  run docker exec mailserver_traefik_acmev1 [ -f /etc/letsencrypt/acme/dump.log ]
   assert_failure
 }
 
-@test "checking traefik acme: all certificates were generated" {
-  run docker exec mailserver_traefik_acme [ -f /etc/letsencrypt/live/mail.domain.tld/cert.pem ]
+@test "checking traefik acme v1: all certificates were generated" {
+  run docker exec mailserver_traefik_acmev1 [ -f /etc/letsencrypt/live/mail.domain.tld/cert.pem ]
   assert_success
-  run docker exec mailserver_traefik_acme [ -f /etc/letsencrypt/live/mail.domain.tld/chain.pem ]
+  run docker exec mailserver_traefik_acmev1 [ -f /etc/letsencrypt/live/mail.domain.tld/chain.pem ]
   assert_success
-  run docker exec mailserver_traefik_acme [ -f /etc/letsencrypt/live/mail.domain.tld/fullchain.pem ]
+  run docker exec mailserver_traefik_acmev1 [ -f /etc/letsencrypt/live/mail.domain.tld/fullchain.pem ]
   assert_success
-  run docker exec mailserver_traefik_acme [ -f /etc/letsencrypt/live/mail.domain.tld/privkey.pem ]
+  run docker exec mailserver_traefik_acmev1 [ -f /etc/letsencrypt/live/mail.domain.tld/privkey.pem ]
   assert_success
 }
 
-@test "checking traefik acme: check private key" {
-  run docker exec mailserver_traefik_acme /bin/sh -c "openssl rsa -in /etc/letsencrypt/live/mail.domain.tld/privkey.pem -check 2>/dev/null | head -n 1"
+@test "checking traefik acme v1: check private key" {
+  run docker exec mailserver_traefik_acmev1 /bin/sh -c "openssl rsa -in /etc/letsencrypt/live/mail.domain.tld/privkey.pem -check 2>/dev/null | head -n 1"
   assert_success
   assert_output "RSA key ok"
 }
 
-@test "checking traefik acme: private key matches the certificate" {
-  run docker exec mailserver_traefik_acme /bin/sh -c "(openssl x509 -noout -modulus -in /etc/letsencrypt/live/mail.domain.tld/cert.pem | openssl md5 ; openssl rsa -noout -modulus -in /etc/letsencrypt/live/mail.domain.tld/privkey.pem | openssl md5) | uniq | wc -l"
+@test "checking traefik acme v1: private key matches the certificate" {
+  run docker exec mailserver_traefik_acmev1 /bin/sh -c "(openssl x509 -noout -modulus -in /etc/letsencrypt/live/mail.domain.tld/cert.pem | openssl md5 ; openssl rsa -noout -modulus -in /etc/letsencrypt/live/mail.domain.tld/privkey.pem | openssl md5) | uniq | wc -l"
+  assert_success
+  assert_output 1
+}
+
+#
+# traefik acme v2
+#
+
+@test "checking traefik acme v2: acme.json exist" {
+  run docker exec mailserver_traefik_acmev2 [ -f /etc/letsencrypt/acme/acme.json ]
+  assert_success
+}
+
+@test "checking traefik acme v2: dump.log doesn't exist" {
+  run docker exec mailserver_traefik_acmev2 [ -f /etc/letsencrypt/acme/dump.log ]
+  assert_failure
+}
+
+@test "checking traefik acme v2: all certificates were generated" {
+  run docker exec mailserver_traefik_acmev2 [ -f /etc/letsencrypt/live/mail.domain.tld/cert.pem ]
+  assert_success
+  run docker exec mailserver_traefik_acmev2 [ -f /etc/letsencrypt/live/mail.domain.tld/chain.pem ]
+  assert_success
+  run docker exec mailserver_traefik_acmev2 [ -f /etc/letsencrypt/live/mail.domain.tld/fullchain.pem ]
+  assert_success
+  run docker exec mailserver_traefik_acmev2 [ -f /etc/letsencrypt/live/mail.domain.tld/privkey.pem ]
+  assert_success
+}
+
+@test "checking traefik acme v2: check private key" {
+  run docker exec mailserver_traefik_acmev2 /bin/sh -c "openssl rsa -in /etc/letsencrypt/live/mail.domain.tld/privkey.pem -check 2>/dev/null | head -n 1"
+  assert_success
+  assert_output "RSA key ok"
+}
+
+@test "checking traefik acme v2: private key matches the certificate" {
+  run docker exec mailserver_traefik_acmev2 /bin/sh -c "(openssl x509 -noout -modulus -in /etc/letsencrypt/live/mail.domain.tld/cert.pem | openssl md5 ; openssl rsa -noout -modulus -in /etc/letsencrypt/live/mail.domain.tld/privkey.pem | openssl md5) | uniq | wc -l"
   assert_success
   assert_output 1
 }
@@ -1248,6 +1500,8 @@ load 'test_helper/bats-assert/load'
   assert_failure
   run docker exec mailserver_default grep -i 'permission denied' /var/log/mail.log
   assert_failure
+  run docker exec mailserver_default grep -i 'address already in use' /var/log/mail.log
+  assert_failure
 }
 
 @test "checking logs: /var/log/mail.log in mailserver_reverse is error free " {
@@ -1256,6 +1510,8 @@ load 'test_helper/bats-assert/load'
   run docker exec mailserver_reverse grep -i 'is not writable' /var/log/mail.log
   assert_failure
   run docker exec mailserver_reverse grep -i 'permission denied' /var/log/mail.log
+  assert_failure
+  run docker exec mailserver_default grep -i 'address already in use' /var/log/mail.log
   assert_failure
 }
 
@@ -1267,6 +1523,24 @@ load 'test_helper/bats-assert/load'
 
 @test "checking logs: /var/log/mail.err in mailserver_reverse does not exist" {
   run docker exec mailserver_reverse cat /var/log/mail.err
+  assert_failure
+  assert_output --partial 'No such file or directory'
+}
+
+@test "checking logs: /var/log/mail.err in mailserver_ecdsa does not exist" {
+  run docker exec mailserver_ecdsa cat /var/log/mail.err
+  assert_failure
+  assert_output --partial 'No such file or directory'
+}
+
+@test "checking logs: /var/log/mail.err in mailserver_traefik_acmev1 does not exist" {
+  run docker exec mailserver_traefik_acmev1 cat /var/log/mail.err
+  assert_failure
+  assert_output --partial 'No such file or directory'
+}
+
+@test "checking logs: /var/log/mail.err in mailserver_traefik_acmev2 does not exist" {
+  run docker exec mailserver_traefik_acmev2 cat /var/log/mail.err
   assert_failure
   assert_output --partial 'No such file or directory'
 }
