@@ -74,10 +74,10 @@ grep -q "${DBHOST}" /etc/hosts
 
 # if [ $? -ne 0 ]; then
 #   echo "[INFO] MariaDB/PostgreSQL hostname not found in /etc/hosts"
-   IP=$(dig A ${DBHOST} +short +search)
+  #  IP=$(dig A ${DBHOST} +short +search)
 #   if [ -n "$IP" ]; then
-     echo "[INFO] Container IP found, adding a new record in /etc/hosts"
-     echo "${IP} ${DBHOST}" >> /etc/hosts
+    #  echo "[INFO] Container IP found, adding a new record in /etc/hosts"
+    #  echo "${IP} ${DBHOST}" >> /etc/hosts
 #   else
 #     echo "[ERROR] Container IP not found with embedded DNS server... Abort !"
 #     echo "[ERROR] Check your DBHOST environment variable"
@@ -90,20 +90,20 @@ grep -q "${DBHOST}" /etc/hosts
 # Check redis hostname
 grep -q "${REDIS_HOST}" /etc/hosts
 
-if [ $? -ne 0 ]; then
-  echo "[INFO] Redis hostname not found in /etc/hosts"
-  IP=$(dig A ${REDIS_HOST} +short +search)
-  if [ -n "$IP" ]; then
-    echo "[INFO] Container IP found, adding a new record in /etc/hosts"
-    echo "${IP} ${REDIS_HOST}" >> /etc/hosts
-  else
-    echo "[ERROR] Container IP not found with embedded DNS server... Abort !"
-    echo "[ERROR] Check your REDIS_HOST environment variable"
-    exit 1
-  fi
-else
-  echo "[INFO] Redis hostname found in /etc/hosts"
-fi
+# if [ $? -ne 0 ]; then
+#   echo "[INFO] Redis hostname not found in /etc/hosts"
+  # IP=$(dig A ${REDIS_HOST} +short +search)
+#   if [ -n "$IP" ]; then
+    # echo "[INFO] Container IP found, adding a new record in /etc/hosts"
+    # echo "${IP} ${REDIS_HOST}" >> /etc/hosts
+#   else
+#     echo "[ERROR] Container IP not found with embedded DNS server... Abort !"
+#     echo "[ERROR] Check your REDIS_HOST environment variable"
+#     exit 1
+#   fi
+# else
+#   echo "[INFO] Redis hostname found in /etc/hosts"
+# fi
 
 # SETUP CONFIG FILES
 # ---------------------------------------------------------------------------------------------
