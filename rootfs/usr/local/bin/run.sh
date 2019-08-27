@@ -72,20 +72,20 @@ fi
 # Check mariadb/postgres hostname
 grep -q "${DBHOST}" /etc/hosts
 
-if [ $? -ne 0 ]; then
-  echo "[INFO] MariaDB/PostgreSQL hostname not found in /etc/hosts"
-  IP=$(dig A ${DBHOST} +short +search)
-  if [ -n "$IP" ]; then
-    echo "[INFO] Container IP found, adding a new record in /etc/hosts"
-    echo "${IP} ${DBHOST}" >> /etc/hosts
-  else
-    echo "[ERROR] Container IP not found with embedded DNS server... Abort !"
-    echo "[ERROR] Check your DBHOST environment variable"
-    exit 1
-  fi
-else
-  echo "[INFO] MariaDB/PostgreSQL hostname found in /etc/hosts"
-fi
+# if [ $? -ne 0 ]; then
+#   echo "[INFO] MariaDB/PostgreSQL hostname not found in /etc/hosts"
+   IP=$(dig A ${DBHOST} +short +search)
+#   if [ -n "$IP" ]; then
+     echo "[INFO] Container IP found, adding a new record in /etc/hosts"
+     echo "${IP} ${DBHOST}" >> /etc/hosts
+#   else
+#     echo "[ERROR] Container IP not found with embedded DNS server... Abort !"
+#     echo "[ERROR] Check your DBHOST environment variable"
+#     exit 1
+#   fi
+# else
+#   echo "[INFO] MariaDB/PostgreSQL hostname found in /etc/hosts"
+# fi
 
 # Check redis hostname
 grep -q "${REDIS_HOST}" /etc/hosts
