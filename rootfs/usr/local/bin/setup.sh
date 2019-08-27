@@ -6,6 +6,8 @@ export RECIPIENT_DELIMITER
 export FETCHMAIL_INTERVAL
 export RELAY_NETWORKS
 export PASSWORD_SCHEME
+export ALLOW_PLAINTEXT_AUTH
+export ALWAYS_BCC
 
 TESTING=${TESTING:-false}
 DEBUG_MODE=${DEBUG_MODE:-false}
@@ -31,6 +33,9 @@ RECIPIENT_DELIMITER=${RECIPIENT_DELIMITER:-"+"}
 FETCHMAIL_INTERVAL=${FETCHMAIL_INTERVAL:-10}
 RELAY_NETWORKS=${RELAY_NETWORKS:-}
 PASSWORD_SCHEME=${PASSWORD_SCHEME:-"SHA512-CRYPT"}
+
+ALLOW_PLAINTEXT_AUTH=${ALLOW_PLAINTEXT_AUTH:-false}
+ALWAYS_BCC=$([ -f "${ALWAYS_BCC:-}" ] && cat "${ALWAYS_BCC:-}" || echo "${ALWAYS_BCC:-}")
 
 # SSL CERTIFICATES
 # ---------------------------------------------------------------------------------------------
@@ -588,6 +593,22 @@ if [ -f "/var/mail/clamav-unofficial-sigs/user.conf" ]; then
   clamav-unofficial-sigs.sh --install-logrotate &>/dev/null
 else
   echo "[INFO] clamav-unofficial-sigs is disabled (user configuration not found)"
+fi
+
+# BCC Mail Address
+# ---------------------------------------------------------------------------------------------
+if [ ! -z "$ALWAYS_BCC" ]; then
+  echo "[INFO] Set always bcc email: $ALWAYS_BCC"
+  echo "always_bcc = $ALWAYS_BCC" >> /etc/postfix/main.cf
+fi
+
+# Allow plaintext auth
+# ---------------------------------------------------------------------------------------------
+if [ "$ALLOW_PLAINTEXT_AUTH" = true ]; then
+  echo "[INFO] Allow plaintext auth."
+  sed -i 's|\(smtpd_tls_auth_only.*=\).*|\1 no|' /etc/postfix/main.cf
+  sed -i 's|\(ssl =\).*|\1 yes|' /etc/dovecot/conf.d/10-ssl.conf
+  echo "disable_plaintext_auth=no" >> /etc/dovecot/conf.d/10-ssl.conf
 fi
 
 # MISCELLANEOUS
